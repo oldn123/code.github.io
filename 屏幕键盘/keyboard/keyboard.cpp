@@ -54,6 +54,7 @@ BOOL CKeyboardApp::InitInstance()
 	Enable3dControlsStatic();	// Call this when linking to MFC statically
 #endif
 
+
 	CKeyboardDlg dlg;
 	m_pMainWnd = &dlg;
 	int nResponse = dlg.DoModal();
