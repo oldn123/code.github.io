@@ -22,6 +22,10 @@ static char THIS_FILE[] = __FILE__;
 class CPaintBtn;
 std::vector<CPaintBtn*>				g_arrBtns;
 std::map<UINT, CPaintBtn*>			g_mapTimer;
+const 	COLORREF					g_colText_nor = RGB(255, 255, 255);
+const 	COLORREF					g_colText_hot = RGB(0, 0, 0);
+const 	COLORREF					g_colBtn_nor = RGB(55, 55, 55);
+const 	COLORREF					g_colBtn_hot = RGB(220, 220, 220);
 
 #define OFFSET_X 5
 #define OFFSET_Y 5
@@ -104,23 +108,32 @@ public:
 		m_ntid = 0;
 		m_nleaveCnt = 0;
 		m_nId = id;
+		m_colBtn.SetFromCOLORREF(g_colBtn_nor);
+		m_colBtnTxt.SetFromCOLORREF(g_colText_nor);
 	}
 	~CPaintBtn(){
 
 	}
 
-	void SetBtnRect(CString strText, CRect rc){m_rcBtn = rc;}
-	void OnPaint(Graphics & graphics){
+	void SetBtnRect(CString strText, CRect rc) { 
+		m_strText = strText;
+		m_rcBtn = rc;
+	}
 
-		//DrawRoundRectange(graphics, m_colBtn, m_rcBtn.left, m_rcBtn.top, m_rcBtn.Width(), m_rcBtn.Height());
+	void OnPaint(Graphics & graphics){
 		
+		//DrawRoundRectange(graphics, m_colBtn, m_rcBtn.left, m_rcBtn.top, m_rcBtn.Width(), m_rcBtn.Height());
+		//CDC * pDC = CDC::FromHandle(graphics.GetHDC());
+		//pDC->FillSolidRect( &m_rcBtn, RGB(255, 0, 0));
+		TRACE(L"%d, RGB:%x\n", m_nId, m_colBtn);
 		FillRoundRectangle(graphics, m_colBtn, m_rcBtn.left, m_rcBtn.top, m_rcBtn.Width(), m_rcBtn.Height());
 
-		Gdiplus::Font ff(L"Arial", 16);
-		Color cl(255,255,255);
-		SolidBrush sb(cl);
-		RectF rcText(m_rcBtn.left + 10, m_rcBtn.top + 10, 50, 30);
+		int nfs = 18;
+		Gdiplus::Font ff(L"Arial", nfs);
+		SolidBrush sb(m_colBtnTxt);
+		RectF rcText(m_rcBtn.left, m_rcBtn.top + m_rcBtn.Height() / 2 - nfs, m_rcBtn.Width(), m_rcBtn.Height());
 		StringFormat sf;
+		sf.SetAlignment(StringAlignmentCenter);
 		graphics.DrawString((LPCTSTR)m_strText, _tcslen((LPCTSTR)m_strText), &ff, rcText, &sf, &sb);
 	}
 
@@ -138,11 +151,7 @@ public:
 		m_nTouchStatus = 1;
 		m_colBtn.SetFromCOLORREF(RGB(90,90,90));
 		m_pWnd->InvalidateRect(&m_rcBtn);
-		if (m_pWnd)
-		{
-			m_ntid = m_pWnd->SetTimer(100, 60, NULL);
-			g_mapTimer[m_ntid] = this;
-		}
+		SetTimer();
 	}
 
 	void OnTouchIn( CPoint pt ){
@@ -152,12 +161,10 @@ public:
 		}
 		m_pHotBtn = this;
 		m_nTouchStatus = 3;
-		m_colBtn.SetFromCOLORREF(RGB(90,90,90));
+		m_colBtn.SetFromCOLORREF(g_colBtn_hot);
+		m_colBtnTxt.SetFromCOLORREF(g_colText_hot);
 		m_pWnd->InvalidateRect(&m_rcBtn);
-		if (m_pWnd && m_ntid == 0)
-		{
-			m_ntid = m_pWnd->SetTimer(100, 60, NULL);
-		}
+		SetTimer();
 	}
 
 	void OnTouchUp( CPoint pt ){
@@ -167,6 +174,7 @@ public:
 
 	void OnTouchOut( CPoint pt ){
 		m_nTouchStatus = 4;
+		SetTimer();
 	}
 
 	void OnTouchMove( CPoint pt ){
@@ -195,8 +203,8 @@ public:
 				ng = --ng < 0 ? 0 : ng;
 				nb = --nb < 0 ? 0 : nb;
 				m_colBtn.SetFromCOLORREF(RGB(nr, ng, nb));
-
 				m_nleaveCnt++;
+
 				if (m_nleaveCnt > 100)
 				{
 					g_mapTimer.erase(m_ntid);
@@ -216,14 +224,25 @@ public:
 		}
 	}
 protected:
+	void		SetTimer() {
+		if (m_pWnd && m_ntid == 0)
+		{
+			m_ntid = m_pWnd->SetTimer(m_nId + 100, 10, NULL);
+			g_mapTimer[m_ntid] = this;
+		}
+	}
+
+protected:
 	CString		m_strText;
 	CRect		m_rcBtn;
 	int			m_nTouchStatus;
 	CWnd*		m_pWnd;
 	UINT		m_ntid;
 	Color		m_colBtn;
+	Color		m_colBtnTxt;
 	int			m_nleaveCnt;
 	int			m_nId;
+public:
 	static CPaintBtn* m_pHotBtn;
 };
 
@@ -354,6 +373,8 @@ BEGIN_MESSAGE_MAP(CKeyboardDlg, CDialog)
 	ON_WM_LBUTTONUP()
 	ON_WM_MOUSEMOVE()
 	ON_WM_NCHITTEST()
+	ON_WM_ERASEBKGND()
+	ON_WM_MOUSELEAVE()
 END_MESSAGE_MAP()
 
 /////////////////////////////////////////////////////////////////////////////
@@ -398,11 +419,16 @@ BOOL CKeyboardDlg::OnInitDialog()
 		g_arrBtns.push_back(ppb);
 
 		CString ss;
+		ss.Format(L"%d", i);
 		ppb->SetBtnRect(ss, m_rect[i]);
 		SetKeyRect(i, m_rect[i]);
+
 	}
 
 	//SetHook(this->m_hWnd);
+
+
+	Invalidate(TRUE);
 	
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -420,38 +446,40 @@ void CKeyboardDlg::OnSysCommand(UINT nID, LPARAM lParam)
 	}
 }
 
-// If you add a minimize button to your dialog, you will need the code below
-//  to draw the icon.  For MFC applications using the document/view model,
-//  this is automatically done for you by the framework.
-
-void CKeyboardDlg::OnPaint() 
+void CKeyboardDlg::OnDraw(CDC * pDC)
 {
-	if (IsIconic())
-	{
-		CPaintDC dc(this); // device context for painting
-
-		SendMessage(WM_ICONERASEBKGND, (WPARAM) dc.GetSafeHdc(), 0);
-
-		// Center icon in client rectangle
-		int cxIcon = GetSystemMetrics(SM_CXICON);
-		int cyIcon = GetSystemMetrics(SM_CYICON);
-		CRect rect;
-		GetClientRect(&rect);
-		int x = (rect.Width() - cxIcon + 1) / 2;
-		int y = (rect.Height() - cyIcon + 1) / 2;
-
-		// Draw the icon
-		dc.DrawIcon(x, y, m_hIcon);
-	}
-
-	CPaintDC dc(this); 
-	Graphics graphics( dc.m_hDC );
+	Graphics graphics(pDC->m_hDC);
 	graphics.SetSmoothingMode(SmoothingMode::SmoothingModeAntiAlias);
 	int ncnt = g_arrBtns.size();
 	for (int i = 0; i < ncnt; i++)
 	{
 		g_arrBtns[i]->OnPaint(graphics);
 	}
+}
+
+// If you add a minimize button to your dialog, you will need the code below
+//  to draw the icon.  For MFC applications using the document/view model,
+//  this is automatically done for you by the framework.
+
+void CKeyboardDlg::OnPaint() 
+{
+	CPaintDC dc(this);
+
+	CRect rcClient;
+	GetClientRect(&rcClient);
+
+	CDC dcMemory;
+	dcMemory.CreateCompatibleDC(&dc);
+	CBitmap bmp;
+	bmp.CreateCompatibleBitmap(&dc, rcClient.Width(), rcClient.Height());
+	dcMemory.SelectObject(&bmp);
+
+	OnDraw(&dcMemory);
+
+	dc.BitBlt(0, 0, rcClient.Width(), rcClient.Height(), &dcMemory, 0, 0, SRCCOPY);
+
+	dcMemory.DeleteDC();
+	bmp.DeleteObject();
 }
 
 // The system calls this to obtain the cursor to display while the user drags
@@ -604,12 +632,23 @@ void CKeyboardDlg::OnLButtonUp(UINT nFlags, CPoint point)
 	}
 }
 
-
+BOOL _bMouseTrack = TRUE;
 void CKeyboardDlg::OnMouseMove(UINT nFlags, CPoint point)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 
 	CDialog::OnMouseMove(nFlags, point);
+
+	if (_bMouseTrack)     // 若允许 追踪，则。 
+	{
+		TRACKMOUSEEVENT csTME;
+		csTME.cbSize = sizeof(csTME);
+		csTME.dwFlags = TME_LEAVE | TME_HOVER;
+		csTME.hwndTrack = m_hWnd;// 指定要 追踪 的窗口 
+		csTME.dwHoverTime = 10;  // 鼠标在按钮上停留超过 10ms ，才认为状态为 HOVER
+		::_TrackMouseEvent(&csTME); // 开启 Windows 的 WM_MOUSELEAVE ， WM_MOUSEHOVER 事件支持 
+		_bMouseTrack = FALSE;   // 若已经 追踪 ，则停止 追踪 
+	}
 
 	CPaintBtn * pBtn = BtnFromPoint(point);
 	if (pBtn)
@@ -624,13 +663,36 @@ LRESULT CKeyboardDlg::OnNcHitTest(CPoint point)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	LRESULT l = CDialog::OnNcHitTest(point);
 
-	if (!BtnFromPoint(point))
-	{
-		l = HTCAPTION;
-	}
-	else
-	{
-		l = HTCLIENT;
-	}
+// 	if (!BtnFromPoint(point))
+// 	{
+// 		l = HTCAPTION;
+// 	}
+// 	else
+// 	{
+// 		l = HTCLIENT;
+// 	}
 	return l;
+}
+
+
+BOOL CKeyboardDlg::OnEraseBkgnd(CDC* pDC)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	return TRUE;
+}
+
+
+void CKeyboardDlg::OnMouseLeave()
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	CDialog::OnMouseLeave();
+	_bMouseTrack = TRUE;
+	CPaintBtn * pBtn = CPaintBtn::m_pHotBtn;
+	if (pBtn)
+	{
+		CPoint pt(-1, -1);
+		pBtn->OnTouchOut(pt);
+	}
 }

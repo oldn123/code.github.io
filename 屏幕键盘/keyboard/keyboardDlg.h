@@ -47,6 +47,7 @@ protected:
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
+	void		 OnDraw(CDC * pDC);
 	afx_msg HCURSOR OnQueryDragIcon();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
@@ -57,6 +58,8 @@ public:
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 	afx_msg LRESULT OnNcHitTest(CPoint point);
+	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
+	afx_msg void OnMouseLeave();
 };
 
 //{{AFX_INSERT_LOCATION}}
