@@ -93,7 +93,6 @@ void FillRoundRectangle(Graphics &g,Color color,int x,int y,int width,int height
 
 }
 
-
 class CPaintBtn
 {
 public:
